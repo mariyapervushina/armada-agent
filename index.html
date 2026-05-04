@@ -555,6 +555,31 @@ FRESE COMBIFLOW 6-way — это запатентованный 6-ходовой
     addBot(t.success);
   };
 
+  // Хелпер: попытка fetch с автоматическим повтором при сетевых ошибках
+  async function fetchWithRetry(url, options, maxRetries) {
+    maxRetries = maxRetries || 3;
+    let lastError;
+    for (var i = 0; i < maxRetries; i++) {
+      try {
+        const res = await fetch(url, options);
+        // 5xx ошибки сервера — тоже стоит повторить
+        if (res.status >= 500 && res.status < 600 && i < maxRetries - 1) {
+          await new Promise(function(r) { setTimeout(r, 800 * (i + 1)); });
+          continue;
+        }
+        return res;
+      } catch (e) {
+        lastError = e;
+        // Сетевые ошибки (ERR_CONNECTION_CLOSED, ERR_NETWORK и т.д.) — повторяем
+        if (i < maxRetries - 1) {
+          await new Promise(function(r) { setTimeout(r, 800 * (i + 1)); });
+          continue;
+        }
+      }
+    }
+    throw lastError;
+  }
+
   async function callGemini(userMsg) {
     currentLang = detectLang(userMsg);
     const langInstruction = {
@@ -566,7 +591,7 @@ FRESE COMBIFLOW 6-way — это запатентованный 6-ходовой
     history.push({ role: 'user', parts: [{ text: userMsg }] });
     showTyping();
     try {
-      const res = await fetch(PROXY_URL, {
+      const res = await fetchWithRetry(PROXY_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -574,7 +599,7 @@ FRESE COMBIFLOW 6-way — это запатентованный 6-ходовой
           contents: history,
           generationConfig: { maxOutputTokens: 1500, temperature: 0.7 }
         })
-      });
+      }, 3);
       const data = await res.json();
       removeTyping();
       let reply = (data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0] && data.candidates[0].content.parts[0].text) || '';
