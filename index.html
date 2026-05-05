@@ -362,6 +362,40 @@
 (function() {
   const PROXY_URL = 'https://armada-proxy.mariya-pervushina.workers.dev/';
 
+  // === НОВОЕ: интеграции для приёма заявок и сообщений ===
+  const TELEGRAM_TOKEN = '8699505852:AAF0SZCIU7hTb2Bq-zRwQa8BKQBE3RKygd0';
+  const TELEGRAM_CHAT_ID = '8699505852';
+  const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbxGPJWpF2h_badW1T64-Tq30IxAxatvrnQWQ5nojIUF0c3xdpqtgXxepYQkn-prtSESNw/exec';
+
+  // Отправка уведомления в Telegram (не блокирует UI)
+  function sendToTelegram(text) {
+    try {
+      const url = 'https://api.telegram.org/bot' + TELEGRAM_TOKEN + '/sendMessage';
+      fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: TELEGRAM_CHAT_ID,
+          text: text,
+          parse_mode: 'HTML'
+        })
+      }).catch(function(e) { console.warn('TG send failed:', e); });
+    } catch(e) { console.warn('TG error:', e); }
+  }
+
+  // Отправка в Google Таблицу (не блокирует UI)
+  function sendToSheets(data) {
+    try {
+      fetch(GOOGLE_SHEETS_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(data)
+      }).catch(function(e) { console.warn('Sheets send failed:', e); });
+    } catch(e) { console.warn('Sheets error:', e); }
+  }
+
+
   const SYSTEM = `Ты — профессиональный менеджер компании ARMADA (ООО АРМАДА). Компания поставляет инженерное оборудование и строительные материалы для крупных строительных проектов в России. Прямые поставки от производителя на объект. Работаем как со строительными компаниями и юридическими лицами, так и с частными клиентами.
 
 АССОРТИМЕНТ ARMADA:
@@ -579,7 +613,32 @@ FRESE COMBIFLOW 6-way — это запатентованный 6-ходовой
     if (!name || !phone) { alert(t.fillRequired); return; }
     addUser(name + ' | ' + phone + (proj ? ' | ' + proj : ''));
     addBot(t.success);
+
+    // === Отправка заявки в Telegram ===
+    const tgMsg = '🔔 <b>НОВАЯ ЗАЯВКА с сайта ARMADA</b>\n\n' +
+      '👤 <b>Имя/компания:</b> ' + escapeHtml(name) + '\n' +
+      '📞 <b>Контакт:</b> ' + escapeHtml(phone) + '\n' +
+      (proj ? '📋 <b>Проект:</b> ' + escapeHtml(proj) + '\n' : '') +
+      '🌐 <b>Язык клиента:</b> ' + currentLang.toUpperCase() + '\n' +
+      '📄 <b>Страница:</b> ' + (location.href || '') + '\n' +
+      '⏰ <b>Время:</b> ' + new Date().toLocaleString('ru-RU');
+    sendToTelegram(tgMsg);
+
+    // === Отправка заявки в Google Таблицу ===
+    sendToSheets({
+      type: 'ЗАЯВКА',
+      name: name,
+      contact: phone,
+      message: proj || '',
+      lang: currentLang,
+      page: location.href || ''
+    });
   };
+
+  // Утилита для экранирования HTML в Telegram
+  function escapeHtml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
 
   // Хелпер: попытка fetch с автоматическим повтором при сетевых ошибках
   async function fetchWithRetry(url, options, maxRetries) {
@@ -627,6 +686,17 @@ FRESE COMBIFLOW 6-way — это запатентованный 6-ходовой
 Если в одном чате пользователь меняет язык — ты тоже меняешь язык ответа.`;
     const dynamicSystem = SYSTEM + '\n\n' + langInstruction;
     history.push({ role: 'user', parts: [{ text: userMsg }] });
+
+    // === Лог сообщения клиента в Google Таблицу (тихо, в фоне) ===
+    sendToSheets({
+      type: 'СООБЩЕНИЕ КЛИЕНТА',
+      name: '',
+      contact: '',
+      message: userMsg,
+      lang: currentLang,
+      page: location.href || ''
+    });
+
     showTyping();
     try {
       const res = await fetchWithRetry(PROXY_URL, {
@@ -649,10 +719,10 @@ FRESE COMBIFLOW 6-way — это запатентованный 6-ходовой
 
       if (reply.indexOf('SHOW_LEAD_FORM') !== -1) {
         const clean = reply.replace('SHOW_LEAD_FORM', '').trim();
-        if (clean) addBot(clean);
+        if (clean) addBotStreaming(clean);
         setTimeout(showLeadForm, 400);
       } else {
-        addBot(reply);
+        addBotStreaming(reply);
         const lc = userMsg.toLowerCase();
         const triggers = ['заявк','контакт','менеджер','заказ','связ',
                           'request','contact','manager','order','reach',
@@ -665,6 +735,32 @@ FRESE COMBIFLOW 6-way — это запатентованный 6-ходовой
       removeTyping();
       addBot(T[currentLang].errorMsg);
     }
+  }
+
+  // Streaming-эффект: показывает ответ постепенно по группам символов
+  function addBotStreaming(text) {
+    const box = document.getElementById('armada-messages');
+    const d = document.createElement('div');
+    d.className = 'msg bot';
+    d.innerHTML = '<div class="av">AR</div><div class="bubble"></div>';
+    box.appendChild(d);
+    const bubble = d.querySelector('.bubble');
+    box.scrollTop = box.scrollHeight;
+
+    let i = 0;
+    const chunk = 3; // символов за один шаг
+    const speed = 15; // мс между шагами
+
+    function step() {
+      if (i >= text.length) return;
+      i = Math.min(i + chunk, text.length);
+      bubble.innerHTML = esc(text.slice(0, i));
+      box.scrollTop = box.scrollHeight;
+      if (i < text.length) {
+        setTimeout(step, speed);
+      }
+    }
+    step();
   }
 
   window.armadaSendMessage = function() {
