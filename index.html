@@ -433,6 +433,13 @@ FRESE COMBIFLOW 6-way — это запатентованный 6-ходовой
 - Режим работы: пн–пт, 09:00–19:00
 - Адрес: Москва, Ленинградский проспект 80Б, к.1
 
+ПРАВИЛА РАБОТЫ С АРТИКУЛАМИ И ТЕХНИЧЕСКОЙ ИНФОРМАЦИЕЙ:
+1. Если в твоей базе знаний (в этом промпте) есть точный артикул на запрашиваемый клиентом товар — обязательно укажи его в ответе.
+2. Если артикула в базе НЕТ — НЕ ВЫДУМЫВАЙ его. Честно скажи: «Точный артикул для этой конфигурации уточнит наш менеджер. Оставьте заявку или позвоните: +7 905 740 8419» (на языке пользователя).
+3. Никогда не сочиняй технические параметры (расход, давление, температуру и т.д.). Если параметра нет в базе — отвечай «уточнит менеджер».
+4. Если клиент описывает свою задачу (например: «мне нужен жироотделитель для ресторана на 50 посадочных мест») — подбери из базы знаний подходящую модель и укажи её артикул, если он есть.
+5. Все артикулы в твоей базе — это реальные коды продукции. Передавай их без изменений символ в символ.
+
 СТИЛЬ ОБЩЕНИЯ: формальный, профессиональный, вежливый. Обращайся к пользователю на «Вы». Отвечай коротко и по делу — 2–4 предложения. Не используй эмодзи и неформальные восклицания типа «Отлично!», «Супер!». Для точного расчёта предлагай связаться с менеджером. Если клиент хочет оставить заявку или связаться — напиши только слово SHOW_LEAD_FORM на отдельной строке. Отвечай на том же языке, на котором задал вопрос пользователь (русский, английский, турецкий или любой другой). По умолчанию — русский.`;
 
   const T = {
@@ -476,11 +483,30 @@ FRESE COMBIFLOW 6-way — это запатентованный 6-ходовой
 
   function detectLang(text) {
     if (!text || text.length < 2) return currentLang;
-    if (/[ğĞıİşŞçÇöÖüÜ]/.test(text)) return 'tr';
+    // Турецкие специфичные символы — турецкий
+    if (/[ğĞşŞçÇöÖüÜ]/.test(text)) return 'tr';
+    // Азербайджанские специфичные символы (ə, Ə, x, q вне начала, ğ) — для UI используем турецкий (близкий)
+    if (/[əƏ]/.test(text)) return 'tr';
+    // Узбекские и казахские с диакритикой (oʻ, gʻ, қ, ң, ұ, ү, һ) — для UI турецкий
+    if (/[қңұүһҚҢҰҮҺ]/.test(text)) return 'tr';
+    if (/oʻ|gʻ|o['ʼ]|g['ʼ]/i.test(text)) return 'tr';
+    // Кириллица — русский
     if (/[а-яА-ЯёЁ]/.test(text)) return 'ru';
-    if (/^[a-zA-Z0-9\s.,!?'"@#$%&*()\-_+=\/\\:;<>{}\[\]|`~]+$/.test(text)) {
-      const trWords = /\b(merhaba|nasil|ne|var|yok|evet|hayir|tesekkur|lutfen|fiyat|urun|nedir|nerede)\b/i;
-      if (trWords.test(text)) return 'tr';
+    // Латиница: проверяем сначала турецкие слова без диакритики, потом английские
+    if (/[a-zA-Z]/.test(text)) {
+      // Расширенный список турецких слов и их частей (включая технические термины и без диакритики)
+      const trWords = /\b(merhaba|selam|nasil|nasılsınız|ne|nedir|var|yok|evet|hayir|hayır|tesekkur|teşekkür|lutfen|lütfen|fiyat|fiyatı|urun|ürün|nerede|kim|kac|kaç|hangi|icin|için|ile|ben|biz|siz|onlar|bu|şu|var mı|olabilir|alabilir|istiyorum|istiyoruz|gerek|lazim|lazım|musun|misin|miyim|merhabalar|gunaydin|günaydın|iyi|kotu|kötü|buyuk|büyük|kucuk|küçük|yeni|eski|magaza|mağaza|sirket|şirket|sat[ıi]n|teklif|katalog|model|tip|olcu|ölçü|boyut|fiyat[ıi]|maliyet|teslim|teslimat|sipari[sş]|sipariş|gonder|gönder|verir|alir|alır|hakk[ıi]nda|bilgi|yard[ıi]m|sorabilir|gorebilir|görebilir|olusturmak|oluşturmak|nas[ıi]l|kullanim|kullanım|ozellik|özellik|gorebilirim|hizmet|hizmetler|adres|telefon|posta|musteri|müşteri|destek|saat|gun|gün|hafta|ay|yil|yıl|listele|gosterebilir|gösterebilir|yagayirici|yag|yağ|ayirici|ayırıcı|vana|valve|sicaklik|sıcaklık|basinc|basınç|akis|akış|debi|kapasite|sistem|tesisat|yapilanma|projemiz|projeye|projesinde|kurulum|montaj|teknoloji|teknik|servis|garanti|sertifika|standart|kalite|markalar|tedarik|distribütör|markamız|firmamız|teklifimiz|sunabilir|sunmak|saglar|sağlar|verir|kapasiteli|gorebiliriz|gorusebilir|görüşebilir|görebilir|gorebilirsiniz|salam)\b/i;
+      // Английские частые слова — индикатор английского
+      const enWords = /\b(the|is|are|am|have|has|had|will|would|could|should|can|could|may|might|do|does|did|need|needs|want|wants|hello|hi|hey|good|please|thanks|thank you|how|what|where|when|why|which|who|i|you|we|they|this|that|these|those|for|with|from|about|product|catalog|price|order|company|service|support|model|brand|delivery|installation|technical|specification|valve|grease|separator|pump|station|drainage|heating|cooling|hvac)\b/i;
+
+      const trMatches = (text.match(trWords) || []).length;
+      const enMatches = (text.match(enWords) || []).length;
+
+      if (trMatches > enMatches) return 'tr';
+      if (enMatches > 0) return 'en';
+      // Если не нашли явных слов — определяем по доменным маркерам
+      // Турецкие окончания "lar", "ler", "iyor", "miş" и др. часто встречаются
+      if (/\b\w+(lar|ler|iyor|mis|mış|mek|mak|leri|lari|lar[ıi]|ler[ıi])\b/i.test(text)) return 'tr';
       return 'en';
     }
     return currentLang;
@@ -582,11 +608,23 @@ FRESE COMBIFLOW 6-way — это запатентованный 6-ходовой
 
   async function callGemini(userMsg) {
     currentLang = detectLang(userMsg);
-    const langInstruction = {
-      ru: 'ВАЖНО: Отвечай ТОЛЬКО на русском языке.',
-      en: 'IMPORTANT: Reply ONLY in English language. Do not use Russian.',
-      tr: 'ÖNEMLİ: SADECE Türkçe yanıt ver. Rusça veya İngilizce kullanma.'
-    }[currentLang];
+    // Универсальная инструкция: отвечай на ТОМ ЖЕ языке что и пользователь
+    const langInstruction = `КРИТИЧЕСКИ ВАЖНОЕ ПРАВИЛО ЯЗЫКА (САМОЕ ВАЖНОЕ В ЭТОМ ЗАДАНИИ):
+
+Ты ВСЕГДА отвечаешь ТОЧНО на том же языке и в том же варианте языка, на котором написал пользователь. Это правило главнее всех остальных.
+
+Конкретные правила:
+- Если пользователь пишет на турецком (Türkçe) — отвечай ТОЛЬКО на турецком (Türkçe). НЕ переходи на узбекский, казахский, азербайджанский, туркменский или другой тюркский язык.
+- Если пользователь пишет на азербайджанском (Azərbaycan dili) — отвечай ТОЛЬКО на азербайджанском. НЕ путай с турецким.
+- Если пользователь пишет на узбекском (Oʻzbek tili) — отвечай ТОЛЬКО на узбекском. НЕ путай с турецким.
+- Если пользователь пишет на казахском (Қазақ тілі) — отвечай ТОЛЬКО на казахском.
+- Если пользователь пишет на русском — отвечай ТОЛЬКО на русском.
+- Если пользователь пишет на английском — отвечай ТОЛЬКО на английском.
+- Для ЛЮБОГО другого языка (немецкий, итальянский, французский, арабский, китайский и т.д.) — отвечай ровно на нём.
+
+Перед каждым ответом мысленно определи язык пользователя по его последнему сообщению и проверь что весь твой ответ написан НА ТОМ ЖЕ языке, без вкраплений других языков. Не смешивай языки в одном ответе.
+
+Если в одном чате пользователь меняет язык — ты тоже меняешь язык ответа.`;
     const dynamicSystem = SYSTEM + '\n\n' + langInstruction;
     history.push({ role: 'user', parts: [{ text: userMsg }] });
     showTyping();
