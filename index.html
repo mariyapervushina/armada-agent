@@ -1,0 +1,753 @@
+<!-- ============================================ -->
+<!-- ARMADA Chat Agent - встраиваемая версия для Tilda -->
+<!-- Просто скопируйте весь код и вставьте в HTML-блок T123 -->
+<!-- ============================================ -->
+
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Manrope:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+  /* Все стили под уникальным префиксом #armada-chat-root, чтобы не сломать сайт */
+  #armada-chat-root {
+    --ar-navy: #0f1c35;
+    --ar-navy-light: #1a2e52;
+    --ar-gold: #c8a84b;
+    --ar-white: #f5f5f0;
+    --ar-gray: #8a9ab5;
+    --ar-radius: 18px;
+    --ar-shadow: 0 8px 40px rgba(15,28,53,0.18);
+    font-family: 'Manrope', sans-serif;
+  }
+  #armada-chat-root *, #armada-chat-root *::before, #armada-chat-root *::after {
+    box-sizing: border-box;
+  }
+
+  /* Floating button — desktop: large with label, mobile: compact circle */
+  #armada-chat-toggle {
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    height: 64px;
+    padding: 0 24px 0 18px;
+    background: var(--ar-navy);
+    border-radius: 40px;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 6px 28px rgba(15,28,53,0.45);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    z-index: 999998;
+    transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
+    font-family: 'Manrope', sans-serif;
+    animation: armada-attention 4s ease-in-out 2s infinite;
+  }
+  @keyframes armada-attention {
+    0%, 90%, 100% { transform: scale(1); }
+    93% { transform: scale(1.06); }
+    96% { transform: scale(0.98); }
+  }
+  #armada-chat-toggle:hover {
+    transform: scale(1.05);
+    box-shadow: 0 8px 36px rgba(15,28,53,0.55);
+    background: var(--ar-navy-light);
+    animation: none;
+  }
+  #armada-chat-toggle svg { width: 26px; height: 26px; fill: none; stroke: var(--ar-gold); stroke-width: 2; flex-shrink: 0; }
+  #armada-toggle-label {
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+  #armada-toggle-label small {
+    display: block;
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--ar-gold);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+  #armada-badge {
+    position: absolute; top: 6px; right: 6px;
+    width: 14px; height: 14px;
+    background: #4caf7d;
+    border-radius: 50%;
+    border: 2px solid white;
+    animation: armada-pulse 2s infinite;
+  }
+  @keyframes armada-pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.7;transform:scale(1.15)} }
+
+  /* Chat window */
+  #armada-chat-window {
+    position: fixed;
+    bottom: 100px;
+    right: 28px;
+    width: 380px;
+    height: 570px;
+    background: white;
+    border-radius: var(--ar-radius);
+    box-shadow: var(--ar-shadow);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    z-index: 999999;
+    transform: scale(0.9) translateY(20px);
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+    font-family: 'Manrope', sans-serif;
+  }
+  #armada-chat-window.armada-open {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  #armada-chat-window .chat-header {
+    background: var(--ar-navy);
+    padding: 14px 18px;
+    display: flex; align-items: center; gap: 12px;
+    flex-shrink: 0;
+  }
+  #armada-chat-window .header-logo {
+    width: 40px; height: 40px;
+    background: var(--ar-gold);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 15px;
+    color: var(--ar-navy);
+    letter-spacing: 0.5px;
+    flex-shrink: 0;
+  }
+  #armada-chat-window .header-info { flex: 1; }
+  #armada-chat-window .header-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 17px;
+    color: var(--ar-white);
+    letter-spacing: 1.5px;
+  }
+  #armada-chat-window .header-status {
+    font-size: 11px;
+    color: var(--ar-gray);
+    display: flex; align-items: center; gap: 5px;
+    margin-top: 2px;
+  }
+  #armada-chat-window .status-dot {
+    width: 7px; height: 7px;
+    background: #4caf7d;
+    border-radius: 50%;
+  }
+  #armada-chat-window .header-close {
+    width: 28px; height: 28px;
+    background: rgba(255,255,255,0.1);
+    border: none; border-radius: 50%;
+    cursor: pointer;
+    color: var(--ar-gray);
+    font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s;
+    padding: 0;
+  }
+  #armada-chat-window .header-close:hover {
+    background: rgba(255,255,255,0.2); color: white;
+  }
+
+  #armada-messages {
+    flex: 1; overflow-y: auto; padding: 16px;
+    display: flex; flex-direction: column; gap: 10px;
+    background: #f8f7f4; scroll-behavior: smooth;
+  }
+  #armada-messages::-webkit-scrollbar { width: 4px; }
+  #armada-messages::-webkit-scrollbar-thumb { background: #ddd; border-radius: 4px; }
+
+  #armada-chat-window .msg {
+    display: flex; gap: 8px; align-items: flex-end;
+    animation: armada-fadeUp 0.25s ease;
+  }
+  #armada-chat-window .msg.user { flex-direction: row-reverse; }
+  @keyframes armada-fadeUp {
+    from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)}
+  }
+
+  #armada-chat-window .av {
+    width: 28px; height: 28px;
+    border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700;
+  }
+  #armada-chat-window .bot .av {
+    background: var(--ar-gold); color: var(--ar-navy);
+    font-family: 'Bebas Neue', sans-serif; font-size: 11px;
+  }
+  #armada-chat-window .user .av {
+    background: var(--ar-navy); color: white;
+    font-family: 'Bebas Neue', sans-serif; font-size: 11px;
+  }
+
+  #armada-chat-window .bubble {
+    max-width: 76%; padding: 10px 14px;
+    border-radius: 16px;
+    font-size: 13.5px; line-height: 1.6;
+    word-wrap: break-word;
+  }
+  #armada-chat-window .msg.bot .bubble {
+    background: white; color: #1a1a2e;
+    border: 1px solid #e8e4dc;
+    border-bottom-left-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+  #armada-chat-window .msg.user .bubble {
+    background: var(--ar-navy); color: white;
+    border-bottom-right-radius: 4px;
+  }
+
+  #armada-chat-window .typing-dots {
+    display: flex; gap: 4px; align-items: center; padding: 4px 2px;
+  }
+  #armada-chat-window .typing-dots span {
+    width: 7px; height: 7px;
+    background: var(--ar-gray);
+    border-radius: 50%;
+    animation: armada-bounce 1.2s infinite; opacity: 0.6;
+  }
+  #armada-chat-window .typing-dots span:nth-child(2){animation-delay:.2s}
+  #armada-chat-window .typing-dots span:nth-child(3){animation-delay:.4s}
+  @keyframes armada-bounce{
+    0%,60%,100%{transform:translateY(0)}
+    30%{transform:translateY(-5px)}
+  }
+
+  #armada-quick-btns {
+    display: flex; gap: 6px; padding: 8px 14px;
+    flex-wrap: wrap; background: white;
+    border-top: 1px solid #ede9e2; flex-shrink: 0;
+  }
+  #armada-chat-window .qbtn {
+    font-size: 11.5px; padding: 5px 10px;
+    border: 1px solid #d8d2c8; border-radius: 20px;
+    background: #f8f6f2; color: #4a4a5a;
+    cursor: pointer;
+    font-family: 'Manrope', sans-serif; font-weight: 500;
+    transition: all 0.15s; white-space: nowrap;
+  }
+  #armada-chat-window .qbtn:hover {
+    background: var(--ar-navy); color: white; border-color: var(--ar-navy);
+  }
+
+  #armada-input-row {
+    display: flex; gap: 8px; padding: 12px 14px;
+    background: white; border-top: 1px solid #ede9e2;
+    flex-shrink: 0;
+  }
+  #armada-user-input {
+    flex: 1;
+    border: 1.5px solid #e0dbd2;
+    border-radius: 12px;
+    padding: 9px 13px;
+    font-size: 13.5px;
+    font-family: 'Manrope', sans-serif;
+    background: #faf9f6; color: #1a1a2e;
+    resize: none; outline: none; height: 40px;
+    transition: border-color 0.15s;
+  }
+  #armada-user-input:focus { border-color: var(--ar-navy); background: white; }
+  #armada-send-btn {
+    width: 40px; height: 40px;
+    background: var(--ar-navy);
+    border: none; border-radius: 12px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.15s, transform 0.1s;
+    padding: 0;
+  }
+  #armada-send-btn:hover { background: var(--ar-navy-light); }
+  #armada-send-btn:active { transform: scale(0.95); }
+  #armada-send-btn svg {
+    width: 17px; height: 17px;
+    fill: none; stroke: var(--ar-gold); stroke-width: 2.2;
+  }
+
+  #armada-chat-window .lead-card {
+    background: #f8f6f2;
+    border: 1px solid #e0dbd2;
+    border-radius: 12px;
+    padding: 14px;
+    margin-top: 4px;
+  }
+  #armada-chat-window .lead-card p {
+    font-size: 12.5px; color: #6a6a7a;
+    margin: 0 0 10px 0; line-height: 1.5;
+  }
+  #armada-chat-window .lead-card input {
+    width: 100%;
+    border: 1px solid #e0dbd2;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 13px;
+    background: white; color: #1a1a2e;
+    margin-bottom: 8px; outline: none;
+    font-family: 'Manrope', sans-serif;
+    transition: border-color 0.15s;
+  }
+  #armada-chat-window .lead-card input:focus { border-color: var(--ar-navy); }
+  #armada-chat-window .lead-card button {
+    width: 100%;
+    background: var(--ar-navy); color: white;
+    border: none; border-radius: 8px;
+    padding: 10px;
+    font-size: 13px;
+    font-family: 'Manrope', sans-serif;
+    font-weight: 600; cursor: pointer;
+    transition: background 0.15s;
+  }
+  #armada-chat-window .lead-card button:hover { background: var(--ar-navy-light); }
+
+  @media (max-width: 440px) {
+    #armada-chat-window {
+      width: calc(100vw - 24px);
+      right: 12px; bottom: 90px;
+      height: 520px;
+    }
+    #armada-chat-toggle {
+      right: 16px; bottom: 16px;
+      width: 60px; height: 60px;
+      padding: 0;
+      border-radius: 50%;
+      justify-content: center;
+      animation: none;
+    }
+    #armada-toggle-label { display: none; }
+  }
+</style>
+
+<div id="armada-chat-root">
+  <button id="armada-chat-toggle" onclick="armadaToggleChat()">
+    <div id="armada-badge"></div>
+    <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    <span id="armada-toggle-label">Задать вопрос<small>Менеджер онлайн</small></span>
+  </button>
+
+  <div id="armada-chat-window">
+    <div class="chat-header">
+      <div class="header-logo">AR</div>
+      <div class="header-info">
+        <div class="header-name">ARMADA</div>
+        <div class="header-status"><span class="status-dot"></span> Онлайн</div>
+      </div>
+      <button class="header-close" onclick="armadaToggleChat()">✕</button>
+    </div>
+    <div id="armada-messages"></div>
+    <div id="armada-quick-btns">
+      <button class="qbtn" onclick="armadaSendQuick(this)">Подобрать материалы для проекта</button>
+      <button class="qbtn" onclick="armadaSendQuick(this)">Сроки и условия поставки</button>
+      <button class="qbtn" onclick="armadaSendQuick(this)">Гарантии и сертификаты</button>
+      <button class="qbtn" onclick="armadaSendQuick(this)">Наши проекты</button>
+      <button class="qbtn" onclick="armadaSendQuick(this)">Связаться с менеджером</button>
+    </div>
+    <div id="armada-input-row">
+      <textarea id="armada-user-input" placeholder="Напишите вопрос..." onkeydown="armadaHandleKey(event)"></textarea>
+      <button id="armada-send-btn" onclick="armadaSendMessage()">
+        <svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  // Единая точка входа для всех запросов — Worker, который хранит все секреты
+  const WORKER_URL = 'https://armada-proxy.mariya-pervushina.workers.dev/';
+
+  // Отправка заявки или лога через Worker (не блокирует UI)
+  function sendToWorker(action, payload) {
+    try {
+      fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: action,
+          payload: payload
+        })
+      }).catch(function(e) { console.warn(action + ' failed:', e); });
+    } catch(e) { console.warn(action + ' error:', e); }
+  }
+
+
+  const SYSTEM = `Ты — профессиональный менеджер компании ARMADA (ООО АРМАДА). Компания поставляет инженерное оборудование и строительные материалы для крупных строительных проектов в России. Прямые поставки от производителя на объект. Работаем как со строительными компаниями и юридическими лицами, так и с частными клиентами.
+
+АССОРТИМЕНТ ARMADA:
+- FRESE (Дания) — балансировочные клапаны HVAC, в том числе COMBIFLOW 6-way (см. подробности ниже)
+- KESSEL (Германия) — жироотделители, насосы КНС, подъёмные станции, системы водоотведения
+- AK PLASTİK — пластиковые фильтры и сепараторы
+- WHEIL — вентиляция, кондиционирование, климатическое оборудование
+- PRIME DOORS — противопожарные двери
+- TENAU — лифты и лифтовое оборудование
+- LAPARET — керамическая плитка, керамогранит, керамопаркет
+- SIKA (Швейцария) — системы для склеивания, герметизации, армирования и защиты конструкций
+- ROCHA — сантехника (витражи, раковины и др.)
+- CROST — декоративная штукатурка и отделочные материалы
+
+ПОДРОБНАЯ ИНФОРМАЦИЯ О FRESE COMBIFLOW (балансировочные клапаны для HVAC):
+FRESE COMBIFLOW 6-way — это запатентованный 6-ходовой клапан независимый от давления (PICV) для 4-трубных систем охлаждения и отопления. Один клапан и один привод обеспечивают переключение между нагревом и охлаждением, а также модулирующее регулирование расхода — без перетока между контурами.
+
+Ключевые особенности COMBIFLOW 6-way:
+- Класс давления PN25, максимальный перепад давления 400 кПа (4 бар)
+- Диапазон температуры среды: 0–90°C
+- Корпус из латуни DZR (CW602N), устойчивой к обесцинкованию
+- Встроенный регулятор перепада давления (DP) обеспечивает 100% авторитет клапана
+- Сменный DP-картридж для удобной промывки на полном расходе
+- Только одна точка данных (data point) для подключения к BMS
+- Поддержка управления через 0-10 V, 4-20 mA, BACnet MS/TP, Modbus RTU
+- Раздельные предустановки расхода для нагрева и охлаждения через BACnet/Modbus
+- Встроенный сброс давления в закрытом положении (для расширения/сжатия среды)
+- Допустимы смеси гликоля до 50% (этилен и пропилен)
+
+Типоразмеры и расходы COMBIFLOW 6-way:
+- DN15 Low: расход 30–830 л/ч, артикул 53-1839, резьба M/M G3/4, вес 1.9 кг
+- DN15: расход 210–1200 л/ч, артикул 53-1844, резьба M/M G3/4, вес 1.9 кг
+- DN20: расход 460–4250 л/ч, артикул 53-1845, резьба M/M G1, вес 3.4 кг
+
+Применение COMBIFLOW: 4-трубные системы для отопления и охлаждения через radiant панели (тёплые полы/потолки), децентрализованные вентиляционные установки, фанкойлы (fan coil), конвекционные установки нагрева и охлаждения.
+
+Приводы COMBIFLOW:
+1. Analog Rotary Actuator (артикул 48-5397) — аналоговый, 0-10V, питание 24V AC/DC, крутящий момент 5 Nm, время хода 150 с, IP54, кабель 0.9 м заводской, мощность 1.2 W при работе
+2. Multi Rotary Actuator (артикулы 48-5394 с кабелем / 48-5395 без кабеля) — комбинированный аналоговый и цифровой, поддерживает 0(2)-10V, (0)4-20mA, BACnet MS/TP, Modbus RTU, питание 24V AC/DC, крутящий момент 5 Nm, время хода 45 с, IP54, функция dew point sensor (датчик точки росы), backup mode при потере связи
+
+Преимущества клиенту: устраняет переток между контурами при колебаниях давления; одна позиция вместо двух клапанов с двумя приводами и без отдельного датчика расхода — снижает стоимость BOM и риск утечек; компактное решение, балансировочные клапаны или дополнительные PICV не требуются; большие проходные сечения дают минимальные потери давления (наименьшие среди 6-ходовых решений) — экономия на насосе и энергии.
+
+ПОДРОБНАЯ ИНФОРМАЦИЯ О KESSEL — ЖИРООТДЕЛИТЕЛИ:
+Компания KESSEL основана в 1963 г. в Германии (г. Лентинг). Made in Germany. Стандарт EN 1825. Гарантия на полиэтилен — 20 лет.
+
+Линейки жироотделителей KESSEL:
+1. EasyClean free Basic (NS 2–10) — экономичная серия: Standard (ручная откачка) и Direct (прямая откачка без открытия бака).
+2. EasyClean free (NS 2–30) — продвинутая серия. Системы откачки: Standard, Direct, Mix, Auto Mix, Mix & Pump, Auto Mix & Pump (полный автомат). Опция SonicControl — ультразвуковой контроль уровня жира.
+3. EasyClean Modular (NS 0.25–4) — модульная серия, разбирается на части, проходит в проём 58 см. Идеально для реконструкции.
+4. EasyClean ground (NS 1–35) — подземная установка вне здания. Экономит место внутри помещения.
+
+Принцип работы: гравитационное разделение — жир всплывает, осадок оседает, очищенная вода выходит. Полиэтилен устойчив к агрессивным жирным кислотам.
+Применение KESSEL: рестораны, отели, больницы, столовые, мясоперерабатывающие предприятия. Установка обязательна по закону.
+
+РЕАЛИЗОВАННЫЕ ПРОЕКТЫ ARMADA: Лахта Центр (СПб), ГЭС-2, Сберсити, Victory Park Residences, Поклонная 9, ЖК Hide, ЖК Slava, ЖК Soho+Noho, Павелецкая Плаза, iCITY.
+
+УСЛОВИЯ РАБОТЫ:
+- Только с юридическими лицами (B2B)
+- Работаем со строительными и проектными компаниями, а также с частными клиентами
+- Оплата: 100% аванс или частичный аванс — зависит от проекта
+- Поставки прямо с завода/склада на объект
+- Товары в наличии и под заказ
+- Цена рассчитывается индивидуально
+- Сроки поставки: уточняются индивидуально по каждой позиции
+
+КОНТАКТЫ:
+- Телефон: +7 905 740 8419
+- Email: info@armada-mos.ru
+- Режим работы: пн–пт, 09:00–19:00
+- Адрес: Москва, Ленинградский проспект 80Б, к.1
+
+ПРАВИЛА РАБОТЫ С АРТИКУЛАМИ И ТЕХНИЧЕСКОЙ ИНФОРМАЦИЕЙ:
+1. Если в твоей базе знаний (в этом промпте) есть точный артикул на запрашиваемый клиентом товар — обязательно укажи его в ответе.
+2. Если артикула в базе НЕТ — НЕ ВЫДУМЫВАЙ его. Честно скажи: «Точный артикул для этой конфигурации уточнит наш менеджер. Оставьте заявку или позвоните: +7 905 740 8419» (на языке пользователя).
+3. Никогда не сочиняй технические параметры (расход, давление, температуру и т.д.). Если параметра нет в базе — отвечай «уточнит менеджер».
+4. Если клиент описывает свою задачу (например: «мне нужен жироотделитель для ресторана на 50 посадочных мест») — подбери из базы знаний подходящую модель и укажи её артикул, если он есть.
+5. Все артикулы в твоей базе — это реальные коды продукции. Передавай их без изменений символ в символ.
+
+СТИЛЬ ОБЩЕНИЯ: формальный, профессиональный, вежливый. Обращайся к пользователю на «Вы». Отвечай коротко и по делу — 2–4 предложения. Не используй эмодзи и неформальные восклицания типа «Отлично!», «Супер!». Для точного расчёта предлагай связаться с менеджером. Если клиент хочет оставить заявку или связаться — напиши только слово SHOW_LEAD_FORM на отдельной строке. Отвечай на том же языке, на котором задал вопрос пользователь (русский, английский, турецкий или любой другой). По умолчанию — русский.`;
+
+  const T = {
+    ru: {
+      welcome: 'Здравствуйте! Вы обратились в компанию ARMADA.\n\nМы поставляем инженерное оборудование и строительные материалы для крупных проектов: жилых комплексов, больниц, отелей, офисных зданий.\n\nЧем можем быть Вам полезны?\n\n🇷🇺 RU · 🇬🇧 EN · 🇹🇷 TR — пишите на удобном языке',
+      formTitle: 'Оставьте контакты — менеджер свяжется с Вами в рабочее время (пн–пт, 09:00–19:00)',
+      name: 'Ваше имя и компания',
+      phone: 'Телефон или email',
+      project: 'Тип объекта и что нужно (кратко)',
+      submit: 'Отправить заявку →',
+      fillRequired: 'Пожалуйста, укажите имя и контакт',
+      success: 'Благодарим, Ваша заявка принята.\n\nМенеджер свяжется с Вами в ближайшее рабочее время.\n\nДля срочных вопросов: +7 905 740 8419',
+      errorMsg: 'Ошибка соединения. Свяжитесь напрямую:\n+7 905 740 8419\ninfo@armada-mos.ru',
+      noResponse: 'Извините, не удалось получить ответ. Позвоните нам: +7 905 740 8419'
+    },
+    en: {
+      welcome: 'Hello, and welcome to ARMADA.\n\nWe supply engineering equipment and construction materials for large-scale projects: residential complexes, hospitals, hotels, and office buildings.\n\nHow may we assist you?\n\n🇷🇺 RU · 🇬🇧 EN · 🇹🇷 TR — write in any language',
+      formTitle: 'Leave your contacts — our manager will reach out during business hours (Mon–Fri, 09:00–19:00 Moscow time)',
+      name: 'Your name and company',
+      phone: 'Phone or email',
+      project: 'Project type and what you need (brief)',
+      submit: 'Send request →',
+      fillRequired: 'Please provide your name and contact',
+      success: 'Thank you, your request has been received.\n\nOur manager will contact you during business hours.\n\nFor urgent matters: +7 905 740 8419',
+      errorMsg: 'Connection error. Contact us directly:\n+7 905 740 8419\ninfo@armada-mos.ru',
+      noResponse: 'Sorry, could not get a response. Please call us: +7 905 740 8419'
+    },
+    tr: {
+      welcome: 'Merhaba, ARMADA şirketine hoş geldiniz.\n\nBüyük projeler için mühendislik ekipmanları ve yapı malzemeleri tedarik ediyoruz: konut kompleksleri, hastaneler, oteller ve ofis binaları.\n\nSize nasıl yardımcı olabiliriz?\n\n🇷🇺 RU · 🇬🇧 EN · 🇹🇷 TR — istediğiniz dilde yazabilirsiniz',
+      formTitle: 'İletişim bilgilerinizi bırakın — yöneticimiz çalışma saatleri içinde sizinle iletişime geçecek (Pzt–Cum, 09:00–19:00 Moskova saati)',
+      name: 'İsim ve şirket',
+      phone: 'Telefon veya e-posta',
+      project: 'Proje türü ve ihtiyacınız (kısaca)',
+      submit: 'Talebi gönder →',
+      fillRequired: 'Lütfen isim ve iletişim bilgilerinizi girin',
+      success: 'Talebiniz alınmıştır, teşekkür ederiz.\n\nYöneticimiz çalışma saatleri içinde sizinle iletişime geçecektir.\n\nAcil durumlar için: +7 905 740 8419',
+      errorMsg: 'Bağlantı hatası. Doğrudan bizimle iletişime geçin:\n+7 905 740 8419\ninfo@armada-mos.ru',
+      noResponse: 'Üzgünüz, yanıt alınamadı. Lütfen arayın: +7 905 740 8419'
+    }
+  };
+
+  function detectLang(text) {
+    if (!text || text.length < 2) return currentLang;
+    // Турецкие специфичные символы — турецкий
+    if (/[ğĞşŞçÇöÖüÜ]/.test(text)) return 'tr';
+    // Азербайджанские специфичные символы (ə, Ə, x, q вне начала, ğ) — для UI используем турецкий (близкий)
+    if (/[əƏ]/.test(text)) return 'tr';
+    // Узбекские и казахские с диакритикой (oʻ, gʻ, қ, ң, ұ, ү, һ) — для UI турецкий
+    if (/[қңұүһҚҢҰҮҺ]/.test(text)) return 'tr';
+    if (/oʻ|gʻ|o['ʼ]|g['ʼ]/i.test(text)) return 'tr';
+    // Кириллица — русский
+    if (/[а-яА-ЯёЁ]/.test(text)) return 'ru';
+    // Латиница: проверяем сначала турецкие слова без диакритики, потом английские
+    if (/[a-zA-Z]/.test(text)) {
+      // Расширенный список турецких слов и их частей (включая технические термины и без диакритики)
+      const trWords = /\b(merhaba|selam|nasil|nasılsınız|ne|nedir|var|yok|evet|hayir|hayır|tesekkur|teşekkür|lutfen|lütfen|fiyat|fiyatı|urun|ürün|nerede|kim|kac|kaç|hangi|icin|için|ile|ben|biz|siz|onlar|bu|şu|var mı|olabilir|alabilir|istiyorum|istiyoruz|gerek|lazim|lazım|musun|misin|miyim|merhabalar|gunaydin|günaydın|iyi|kotu|kötü|buyuk|büyük|kucuk|küçük|yeni|eski|magaza|mağaza|sirket|şirket|sat[ıi]n|teklif|katalog|model|tip|olcu|ölçü|boyut|fiyat[ıi]|maliyet|teslim|teslimat|sipari[sş]|sipariş|gonder|gönder|verir|alir|alır|hakk[ıi]nda|bilgi|yard[ıi]m|sorabilir|gorebilir|görebilir|olusturmak|oluşturmak|nas[ıi]l|kullanim|kullanım|ozellik|özellik|gorebilirim|hizmet|hizmetler|adres|telefon|posta|musteri|müşteri|destek|saat|gun|gün|hafta|ay|yil|yıl|listele|gosterebilir|gösterebilir|yagayirici|yag|yağ|ayirici|ayırıcı|vana|valve|sicaklik|sıcaklık|basinc|basınç|akis|akış|debi|kapasite|sistem|tesisat|yapilanma|projemiz|projeye|projesinde|kurulum|montaj|teknoloji|teknik|servis|garanti|sertifika|standart|kalite|markalar|tedarik|distribütör|markamız|firmamız|teklifimiz|sunabilir|sunmak|saglar|sağlar|verir|kapasiteli|gorebiliriz|gorusebilir|görüşebilir|görebilir|gorebilirsiniz|salam)\b/i;
+      // Английские частые слова — индикатор английского
+      const enWords = /\b(the|is|are|am|have|has|had|will|would|could|should|can|could|may|might|do|does|did|need|needs|want|wants|hello|hi|hey|good|please|thanks|thank you|how|what|where|when|why|which|who|i|you|we|they|this|that|these|those|for|with|from|about|product|catalog|price|order|company|service|support|model|brand|delivery|installation|technical|specification|valve|grease|separator|pump|station|drainage|heating|cooling|hvac)\b/i;
+
+      const trMatches = (text.match(trWords) || []).length;
+      const enMatches = (text.match(enWords) || []).length;
+
+      if (trMatches > enMatches) return 'tr';
+      if (enMatches > 0) return 'en';
+      // Если не нашли явных слов — определяем по доменным маркерам
+      // Турецкие окончания "lar", "ler", "iyor", "miş" и др. часто встречаются
+      if (/\b\w+(lar|ler|iyor|mis|mış|mek|mak|leri|lari|lar[ıi]|ler[ıi])\b/i.test(text)) return 'tr';
+      return 'en';
+    }
+    return currentLang;
+  }
+
+  const history = [];
+  let leadShown = false;
+  let isOpen = false;
+  let initialized = false;
+  let currentLang = 'ru';
+
+  window.armadaToggleChat = function() {
+    isOpen = !isOpen;
+    document.getElementById('armada-chat-window').classList.toggle('armada-open', isOpen);
+    if (isOpen && !initialized) {
+      initialized = true;
+      setTimeout(() => addBot(T[currentLang].welcome), 300);
+    }
+  };
+
+  function esc(t) {
+    return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+  }
+
+  function addBot(text) {
+    const box = document.getElementById('armada-messages');
+    const d = document.createElement('div');
+    d.className = 'msg bot';
+    d.innerHTML = '<div class="av">AR</div><div class="bubble">' + esc(text) + '</div>';
+    box.appendChild(d);
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function addUser(text) {
+    const box = document.getElementById('armada-messages');
+    const d = document.createElement('div');
+    d.className = 'msg user';
+    d.innerHTML = '<div class="av">Вы</div><div class="bubble">' + esc(text) + '</div>';
+    box.appendChild(d);
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function showTyping() {
+    const box = document.getElementById('armada-messages');
+    const d = document.createElement('div');
+    d.className = 'msg bot'; d.id = 'armada-typ';
+    d.innerHTML = '<div class="av">AR</div><div class="bubble"><div class="typing-dots"><span></span><span></span><span></span></div></div>';
+    box.appendChild(d);
+    box.scrollTop = box.scrollHeight;
+  }
+  function removeTyping() { const e = document.getElementById('armada-typ'); if(e) e.remove(); }
+
+  function showLeadForm() {
+    if (leadShown) return;
+    leadShown = true;
+    const t = T[currentLang];
+    const box = document.getElementById('armada-messages');
+    const d = document.createElement('div');
+    d.className = 'msg bot';
+    d.innerHTML = '<div class="av">AR</div><div class="bubble"><div class="lead-card"><p>' + t.formTitle + '</p><input id="armada-l-name" placeholder="' + t.name + '" /><input id="armada-l-phone" placeholder="' + t.phone + '" /><input id="armada-l-proj" placeholder="' + t.project + '" /><button onclick="armadaSubmitLead()">' + t.submit + '</button></div></div>';
+    box.appendChild(d);
+    box.scrollTop = box.scrollHeight;
+  }
+
+  window.armadaSubmitLead = function() {
+    const t = T[currentLang];
+    const name = document.getElementById('armada-l-name').value.trim();
+    const phone = document.getElementById('armada-l-phone').value.trim();
+    const proj = document.getElementById('armada-l-proj').value.trim();
+    if (!name || !phone) { alert(t.fillRequired); return; }
+    addUser(name + ' | ' + phone + (proj ? ' | ' + proj : ''));
+    addBot(t.success);
+
+    // === Отправка заявки в Telegram + Sheets через Worker ===
+    sendToWorker('lead', {
+      name: name,
+      contact: phone,
+      project: proj || '',
+      lang: currentLang,
+      page: location.href || ''
+    });
+  };
+
+  // Хелпер: попытка fetch с автоматическим повтором при сетевых ошибках
+  async function fetchWithRetry(url, options, maxRetries) {
+    maxRetries = maxRetries || 3;
+    let lastError;
+    for (var i = 0; i < maxRetries; i++) {
+      try {
+        const res = await fetch(url, options);
+        // 5xx ошибки сервера — тоже стоит повторить
+        if (res.status >= 500 && res.status < 600 && i < maxRetries - 1) {
+          await new Promise(function(r) { setTimeout(r, 800 * (i + 1)); });
+          continue;
+        }
+        return res;
+      } catch (e) {
+        lastError = e;
+        // Сетевые ошибки (ERR_CONNECTION_CLOSED, ERR_NETWORK и т.д.) — повторяем
+        if (i < maxRetries - 1) {
+          await new Promise(function(r) { setTimeout(r, 800 * (i + 1)); });
+          continue;
+        }
+      }
+    }
+    throw lastError;
+  }
+
+  async function callGemini(userMsg) {
+    currentLang = detectLang(userMsg);
+    // Универсальная инструкция: отвечай на ТОМ ЖЕ языке что и пользователь
+    const langInstruction = `КРИТИЧЕСКИ ВАЖНОЕ ПРАВИЛО ЯЗЫКА (САМОЕ ВАЖНОЕ В ЭТОМ ЗАДАНИИ):
+
+Ты ВСЕГДА отвечаешь ТОЧНО на том же языке и в том же варианте языка, на котором написал пользователь. Это правило главнее всех остальных.
+
+Конкретные правила:
+- Если пользователь пишет на турецком (Türkçe) — отвечай ТОЛЬКО на турецком (Türkçe). НЕ переходи на узбекский, казахский, азербайджанский, туркменский или другой тюркский язык.
+- Если пользователь пишет на азербайджанском (Azərbaycan dili) — отвечай ТОЛЬКО на азербайджанском. НЕ путай с турецким.
+- Если пользователь пишет на узбекском (Oʻzbek tili) — отвечай ТОЛЬКО на узбекском. НЕ путай с турецким.
+- Если пользователь пишет на казахском (Қазақ тілі) — отвечай ТОЛЬКО на казахском.
+- Если пользователь пишет на русском — отвечай ТОЛЬКО на русском.
+- Если пользователь пишет на английском — отвечай ТОЛЬКО на английском.
+- Для ЛЮБОГО другого языка (немецкий, итальянский, французский, арабский, китайский и т.д.) — отвечай ровно на нём.
+
+Перед каждым ответом мысленно определи язык пользователя по его последнему сообщению и проверь что весь твой ответ написан НА ТОМ ЖЕ языке, без вкраплений других языков. Не смешивай языки в одном ответе.
+
+Если в одном чате пользователь меняет язык — ты тоже меняешь язык ответа.`;
+    const dynamicSystem = SYSTEM + '\n\n' + langInstruction;
+    history.push({ role: 'user', parts: [{ text: userMsg }] });
+
+    // === Лог сообщения клиента (через Worker, тихо в фоне) ===
+    sendToWorker('log', {
+      message: userMsg,
+      lang: currentLang,
+      page: location.href || ''
+    });
+
+    showTyping();
+    try {
+      const res = await fetchWithRetry(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'chat',
+          payload: {
+            system_instruction: { parts: [{ text: dynamicSystem }] },
+            contents: history,
+            generationConfig: { maxOutputTokens: 1500, temperature: 0.7 }
+          }
+        })
+      }, 3);
+      const data = await res.json();
+      removeTyping();
+      let reply = (data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0] && data.candidates[0].content.parts[0].text) || '';
+      if (!reply) {
+        addBot(T[currentLang].noResponse);
+        return;
+      }
+      history.push({ role: 'model', parts: [{ text: reply }] });
+
+      if (reply.indexOf('SHOW_LEAD_FORM') !== -1) {
+        const clean = reply.replace('SHOW_LEAD_FORM', '').trim();
+        if (clean) addBotStreaming(clean);
+        setTimeout(showLeadForm, 400);
+      } else {
+        addBotStreaming(reply);
+        const lc = userMsg.toLowerCase();
+        const triggers = ['заявк','контакт','менеджер','заказ','связ',
+                          'request','contact','manager','order','reach',
+                          'talep','iletişim','iletisim','yönetici','yonetici','sipariş','siparis'];
+        if (!leadShown && triggers.some(function(tr){ return lc.indexOf(tr) !== -1; })) {
+          setTimeout(showLeadForm, 700);
+        }
+      }
+    } catch(e) {
+      removeTyping();
+      addBot(T[currentLang].errorMsg);
+    }
+  }
+
+  // Streaming-эффект: показывает ответ постепенно по группам символов
+  function addBotStreaming(text) {
+    const box = document.getElementById('armada-messages');
+    const d = document.createElement('div');
+    d.className = 'msg bot';
+    d.innerHTML = '<div class="av">AR</div><div class="bubble"></div>';
+    box.appendChild(d);
+    const bubble = d.querySelector('.bubble');
+    box.scrollTop = box.scrollHeight;
+
+    let i = 0;
+    const chunk = 3; // символов за один шаг
+    const speed = 15; // мс между шагами
+
+    function step() {
+      if (i >= text.length) return;
+      i = Math.min(i + chunk, text.length);
+      bubble.innerHTML = esc(text.slice(0, i));
+      box.scrollTop = box.scrollHeight;
+      if (i < text.length) {
+        setTimeout(step, speed);
+      }
+    }
+    step();
+  }
+
+  window.armadaSendMessage = function() {
+    const inp = document.getElementById('armada-user-input');
+    const txt = inp.value.trim();
+    if (!txt) return;
+    addUser(txt);
+    inp.value = '';
+    callGemini(txt);
+  };
+
+  window.armadaSendQuick = function(btn) {
+    if (!isOpen) window.armadaToggleChat();
+    const txt = btn.textContent.trim();
+    if (txt === 'Связаться с менеджером') { if (!leadShown) showLeadForm(); return; }
+    addUser(txt);
+    callGemini(txt);
+  };
+
+  window.armadaHandleKey = function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); window.armadaSendMessage(); }
+  };
+})();
+</script>
