@@ -534,6 +534,10 @@ FRESE COMBIFLOW 6-way — это запатентованный 6-ходовой
   let initialized = false;
   let currentLang = 'ru';
 
+  // Уникальный ID сессии — один на всю историю общения посетителя.
+  // Передаётся со всеми сообщениями → в таблице можно группировать по этому ID.
+  const SESSION_ID = 'S-' + Date.now().toString(36) + '-' + Math.random().toString(36).substr(2, 6);
+
   window.armadaToggleChat = function() {
     isOpen = !isOpen;
     document.getElementById('armada-chat-window').classList.toggle('armada-open', isOpen);
@@ -602,7 +606,8 @@ FRESE COMBIFLOW 6-way — это запатентованный 6-ходовой
       contact: phone,
       project: proj || '',
       lang: currentLang,
-      page: location.href || ''
+      page: location.href || '',
+      session: SESSION_ID
     });
   };
 
@@ -657,7 +662,8 @@ FRESE COMBIFLOW 6-way — это запатентованный 6-ходовой
     sendToWorker('log', {
       message: userMsg,
       lang: currentLang,
-      page: location.href || ''
+      page: location.href || '',
+      session: SESSION_ID
     });
 
     showTyping();
@@ -714,8 +720,8 @@ FRESE COMBIFLOW 6-way — это запатентованный 6-ходовой
     box.scrollTop = box.scrollHeight;
 
     let i = 0;
-    const chunk = 3; // символов за один шаг
-    const speed = 15; // мс между шагами
+    const chunk = 1; // 1 символ за шаг — плавная печать без рывков
+    const speed = 18; // мс между шагами (~55 символов/сек, комфортно для чтения)
 
     function step() {
       if (i >= text.length) return;
