@@ -8,13 +8,14 @@
 <style>
   /* Все стили под уникальным префиксом #armada-chat-root, чтобы не сломать сайт */
   #armada-chat-root {
-    --ar-navy: #0f1c35;
-    --ar-navy-light: #1a2e52;
-    --ar-gold: #c8a84b;
+    --ar-navy: #141414;
+    --ar-navy-light: #2a2a2a;
+    --ar-panel: #1f1f1f;
+    --ar-gold: #FEFE4C;
     --ar-white: #f5f5f0;
-    --ar-gray: #8a9ab5;
+    --ar-gray: #9a9a92;
     --ar-radius: 18px;
-    --ar-shadow: 0 8px 40px rgba(15,28,53,0.18);
+    --ar-shadow: 0 8px 40px rgba(0,0,0,0.35);
     font-family: 'Manrope', sans-serif;
   }
   #armada-chat-root *, #armada-chat-root *::before, #armada-chat-root *::after {
@@ -28,11 +29,11 @@
     right: 28px;
     height: 64px;
     padding: 0 24px 0 18px;
-    background: var(--ar-navy);
+    background: var(--ar-panel);
     border-radius: 40px;
-    border: none;
+    border: 1px solid rgba(255,255,255,0.12);
     cursor: pointer;
-    box-shadow: 0 6px 28px rgba(15,28,53,0.45);
+    box-shadow: 0 6px 28px rgba(0,0,0,0.45);
     display: flex;
     align-items: center;
     gap: 12px;
@@ -48,7 +49,7 @@
   }
   #armada-chat-toggle:hover {
     transform: scale(1.05);
-    box-shadow: 0 8px 36px rgba(15,28,53,0.55);
+    box-shadow: 0 8px 36px rgba(0,0,0,0.55);
     background: var(--ar-navy-light);
     animation: none;
   }
@@ -108,7 +109,7 @@
   }
 
   #armada-chat-window .chat-header {
-    background: var(--ar-navy);
+    background: var(--ar-panel);
     padding: 14px 18px;
     display: flex; align-items: center; gap: 12px;
     flex-shrink: 0;
@@ -128,7 +129,7 @@
   #armada-chat-window .header-name {
     font-family: 'Bebas Neue', sans-serif;
     font-size: 17px;
-    color: var(--ar-white);
+    color: var(--ar-gold);
     letter-spacing: 1.5px;
   }
   #armada-chat-window .header-status {
@@ -215,7 +216,7 @@
     font-family: 'Bebas Neue', sans-serif; font-size: 11px;
   }
   #armada-chat-window .user .av {
-    background: var(--ar-navy); color: white;
+    background: var(--ar-navy); color: var(--ar-gold);
     font-family: 'Bebas Neue', sans-serif; font-size: 11px;
   }
 
