@@ -473,7 +473,7 @@ FRESE COMBIFLOW 6-way — это запатентованный 6-ходовой
 4. Если клиент описывает свою задачу (например: «мне нужен жироотделитель для ресторана на 50 посадочных мест») — подбери из базы знаний подходящую модель и укажи её артикул, если он есть.
 5. Все артикулы в твоей базе — это реальные коды продукции. Передавай их без изменений символ в символ.
 
-СТИЛЬ ОБЩЕНИЯ: формальный, профессиональный, вежливый. Обращайся к пользователю на «Вы». Отвечай коротко и по делу — 2–4 предложения. Не используй эмодзи и неформальные восклицания типа «Отлично!», «Супер!». Для точного расчёта предлагай связаться с менеджером. Если клиент хочет оставить заявку или связаться — напиши только слово SHOW_LEAD_FORM на отдельной строке. Отвечай на том же языке, на котором задал вопрос пользователь (русский, английский, турецкий или любой другой). По умолчанию — русский.`;
+СТИЛЬ ОБЩЕНИЯ: формальный, профессиональный, вежливый. Обращайся к пользователю на «Вы». Отвечай коротко и по делу — 2–4 предложения. Не используй эмодзи и неформальные восклицания типа «Отлично!», «Супер!». ПРАВИЛО ФОРМЫ ЗАЯВКИ (строго): слово SHOW_LEAD_FORM пиши ТОЛЬКО если клиент ЯВНО просит оставить заявку, связаться с менеджером, получить расчёт стоимости или коммерческое предложение. Примеры когда НУЖНО: «хочу оставить заявку», «свяжите меня с менеджером», «нужен расчёт цены», «пришлите КП». Примеры когда НЕ НУЖНО: клиент задаёт технический вопрос, спрашивает характеристики, уточняет модель, интересуется гарантией или сроками. В этих случаях просто ответь по существу и НЕ пиши SHOW_LEAD_FORM. Если ты не уверен — НЕ пиши SHOW_LEAD_FORM. Упоминать телефон менеджера в тексте можно всегда, это не то же самое что форма. Отвечай на том же языке, на котором задал вопрос пользователь (русский, английский, турецкий или любой другой). По умолчанию — русский.`;
 
   const T = {
     ru: {
@@ -654,8 +654,11 @@ welcome: 'Здравствуйте! Я — ИИ-консультант ARMADA. �
   }
   function removeTyping() { const e = document.getElementById('armada-typ'); if(e) e.remove(); }
 
-  function showLeadForm() {
+  function showLeadForm(force) {
     if (leadShown) return;
+    // Не показываем форму раньше 2-го сообщения клиента (кроме нажатия кнопки)
+    const userMsgCount = history.filter(function(h) { return h.role === 'user'; }).length;
+    if (!force && userMsgCount < 2) return;
     leadShown = true;
     const t = T[currentLang];
     const box = document.getElementById('armada-messages');
@@ -748,7 +751,11 @@ welcome: 'Здравствуйте! Я — ИИ-консультант ARMADA. �
 Перед каждым ответом мысленно определи язык пользователя по его последнему сообщению и проверь что весь твой ответ написан НА ТОМ ЖЕ языке, без вкраплений других языков. Не смешивай языки в одном ответе.
 
 Если в одном чате пользователь меняет язык — ты тоже меняешь язык ответа.`;
-    const dynamicSystem = SYSTEM + '\n\n' + langInstruction;
+    const langNames = { ru: 'РУССКОМ (Russian)', en: 'АНГЛИЙСКОМ (English)', tr: 'ТУРЕЦКОМ (Türkçe, именно турецкий — НЕ азербайджанский, НЕ узбекский, НЕ казахский, НЕ туркменский)' };
+    const lockNote = langLocked
+      ? '\n\nПОЛЬЗОВАТЕЛЬ ЯВНО ВЫБРАЛ ЯЗЫК ОБЩЕНИЯ В ИНТЕРФЕЙСЕ. Отвечай ИСКЛЮЧИТЕЛЬНО на ' + langNames[currentLang] + ' языке, независимо от того, как выглядит его сообщение. Это указание имеет наивысший приоритет.'
+      : '';
+    const dynamicSystem = SYSTEM + '\n\n' + langInstruction + lockNote;
     history.push({ role: 'user', parts: [{ text: userMsg }] });
 
     // === Лог сообщения клиента (через Worker, тихо в фоне) ===
@@ -785,16 +792,9 @@ welcome: 'Здравствуйте! Я — ИИ-консультант ARMADA. �
       if (reply.indexOf('SHOW_LEAD_FORM') !== -1) {
         const clean = reply.replace('SHOW_LEAD_FORM', '').trim();
         if (clean) addBotStreaming(clean);
-        setTimeout(showLeadForm, 400);
+        setTimeout(function() { showLeadForm(); }, 400);
       } else {
         addBotStreaming(reply);
-        const lc = userMsg.toLowerCase();
-        const triggers = ['заявк','контакт','менеджер','заказ','связ',
-                          'request','contact','manager','order','reach',
-                          'talep','iletişim','iletisim','yönetici','yonetici','sipariş','siparis'];
-        if (!leadShown && triggers.some(function(tr){ return lc.indexOf(tr) !== -1; })) {
-          setTimeout(showLeadForm, 700);
-        }
       }
     } catch(e) {
       removeTyping();
@@ -841,7 +841,7 @@ welcome: 'Здравствуйте! Я — ИИ-консультант ARMADA. �
     if (!isOpen) window.armadaToggleChat();
     const txt = btn.textContent.trim();
     const idx = parseInt(btn.getAttribute('data-idx'), 10);
-    if (idx === 4) { if (!leadShown) showLeadForm(); return; }
+    if (idx === 4) { showLeadForm(true); return; }
     dialogStarted = true;
     addUser(txt);
     callGemini(txt);
