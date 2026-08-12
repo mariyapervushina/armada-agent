@@ -159,6 +159,19 @@
   }
   #armada-lang-switch button:hover { background: rgba(255,255,255,0.18); color: white; }
   #armada-lang-switch button.active { background: var(--ar-gold); color: var(--ar-navy); }
+  #armada-clear-btn {
+    width: 26px; height: 26px;
+    background: rgba(255,255,255,0.08);
+    border: none; border-radius: 50%;
+    cursor: pointer;
+    color: var(--ar-gray);
+    font-size: 13px;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s, color 0.15s;
+    padding: 0; margin-right: 6px;
+    flex-shrink: 0;
+  }
+  #armada-clear-btn:hover { background: rgba(255,255,255,0.2); color: white; }
   #armada-chat-window .header-close {
     width: 28px; height: 28px;
     background: rgba(255,255,255,0.1);
@@ -365,6 +378,7 @@
         <button onclick="armadaSetLang('en')" data-lang="en">EN</button>
         <button onclick="armadaSetLang('tr')" data-lang="tr">TR</button>
       </div>
+      <button id="armada-clear-btn" onclick="armadaClearChat()" title="Очистить чат">⟲</button>
       <button class="header-close" onclick="armadaToggleChat()">✕</button>
     </div>
     <div id="armada-messages"></div>
@@ -482,6 +496,7 @@ welcome: 'Здравствуйте! Я — ИИ-консультант ARMADA. �
       phone: 'Телефон или email',
       project: 'Тип объекта и что нужно (кратко)',
       submit: 'Отправить заявку →',
+      clearTitle: 'Очистить чат',
       status: 'Онлайн',
       inputPlaceholder: 'Напишите вопрос...',
       youLabel: 'Вы',
@@ -499,6 +514,7 @@ welcome: 'Здравствуйте! Я — ИИ-консультант ARMADA. �
       phone: 'Phone or email',
       project: 'Project type and what you need (brief)',
       submit: 'Send request →',
+      clearTitle: 'Clear chat',
       status: 'Online',
       inputPlaceholder: 'Type your question...',
       youLabel: 'You',
@@ -516,6 +532,7 @@ welcome: 'Здравствуйте! Я — ИИ-консультант ARMADA. �
       phone: 'Telefon veya e-posta',
       project: 'Proje türü ve ihtiyacınız (kısaca)',
       submit: 'Talebi gönder →',
+      clearTitle: 'Sohbeti temizle',
       status: 'Çevrimiçi',
       inputPlaceholder: 'Sorunuzu yazın...',
       youLabel: 'Siz',
@@ -567,6 +584,51 @@ welcome: 'Здравствуйте! Я — ИИ-консультант ARMADA. �
   let langLocked = false;
   let dialogStarted = false;
 
+  const STORE_KEY = 'armada_chat_v1';
+  const STORE_TTL = 7 * 24 * 60 * 60 * 1000; // неделя
+
+  // Сохранить состояние чата в браузер
+  function saveState() {
+    try {
+      const box = document.getElementById('armada-messages');
+      localStorage.setItem(STORE_KEY, JSON.stringify({
+        ts: Date.now(),
+        lang: currentLang,
+        langLocked: langLocked,
+        leadShown: leadShown,
+        dialogStarted: dialogStarted,
+        session: SESSION_ID,
+        history: history,
+        html: box ? box.innerHTML : ''
+      }));
+    } catch (e) { /* приватный режим или переполнение — молча пропускаем */ }
+  }
+
+  // Загрузить сохранённое состояние
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(STORE_KEY);
+      if (!raw) return null;
+      const s = JSON.parse(raw);
+      if (!s || !s.ts || (Date.now() - s.ts) > STORE_TTL) {
+        localStorage.removeItem(STORE_KEY);
+        return null;
+      }
+      return s;
+    } catch (e) { return null; }
+  }
+
+  // Очистка чата
+  window.armadaClearChat = function() {
+    try { localStorage.removeItem(STORE_KEY); } catch (e) {}
+    history.length = 0;
+    leadShown = false;
+    dialogStarted = false;
+    const box = document.getElementById('armada-messages');
+    if (box) box.innerHTML = '';
+    addBot(T[currentLang].welcome);
+  };
+
   // Отрисовка быстрых кнопок на текущем языке
   function renderQuickBtns() {
     const box = document.getElementById('armada-quick-btns');
@@ -616,9 +678,27 @@ welcome: 'Здравствуйте! Я — ИИ-консультант ARMADA. �
       initialized = true;
       // Цель Метрики: чат открыт (только при первом открытии)
       if (typeof ym === 'function') ym(103850860, 'reachGoal', 'agent_open');
+      const saved = loadState();
+      if (saved && saved.html) {
+        currentLang = saved.lang || 'ru';
+        langLocked = !!saved.langLocked;
+        leadShown = !!saved.leadShown;
+        dialogStarted = !!saved.dialogStarted;
+        if (Array.isArray(saved.history)) {
+          history.length = 0;
+          saved.history.forEach(function(h) { history.push(h); });
+        }
+        const box = document.getElementById('armada-messages');
+        if (box) { box.innerHTML = saved.html; box.scrollTop = box.scrollHeight; }
+        const st = document.getElementById('armada-status-text');
+        if (st) st.textContent = T[currentLang].status;
+        const inp = document.getElementById('armada-user-input');
+        if (inp) inp.placeholder = T[currentLang].inputPlaceholder;
+      } else {
+        setTimeout(() => addBot(T[currentLang].welcome), 300);
+      }
       renderQuickBtns();
       renderLangSwitch();
-      setTimeout(() => addBot(T[currentLang].welcome), 300);
     }
   };
 
@@ -633,13 +713,14 @@ welcome: 'Здравствуйте! Я — ИИ-консультант ARMADA. �
     d.innerHTML = '<div class="av">AR</div><div class="bubble">' + esc(text) + '</div>';
     box.appendChild(d);
     box.scrollTop = box.scrollHeight;
+    saveState();
   }
 
   function addUser(text) {
     const box = document.getElementById('armada-messages');
     const d = document.createElement('div');
     d.className = 'msg user';
-    d.innerHTML = '<div class="av">Вы</div><div class="bubble">' + esc(text) + '</div>';
+    d.innerHTML = '<div class="av">' + T[currentLang].youLabel + '</div><div class="bubble">' + esc(text) + '</div>';
     box.appendChild(d);
     box.scrollTop = box.scrollHeight;
   }
@@ -651,6 +732,7 @@ welcome: 'Здравствуйте! Я — ИИ-консультант ARMADA. �
     d.innerHTML = '<div class="av">AR</div><div class="bubble"><div class="typing-dots"><span></span><span></span><span></span></div></div>';
     box.appendChild(d);
     box.scrollTop = box.scrollHeight;
+    saveState();
   }
   function removeTyping() { const e = document.getElementById('armada-typ'); if(e) e.remove(); }
 
@@ -823,6 +905,8 @@ welcome: 'Здравствуйте! Я — ИИ-консультант ARMADA. �
       box.scrollTop = box.scrollHeight;
       if (i < text.length) {
         setTimeout(step, speed);
+      } else {
+        saveState();
       }
     }
     step();
