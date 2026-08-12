@@ -142,6 +142,23 @@
     background: #4caf7d;
     border-radius: 50%;
   }
+  #armada-lang-switch {
+    display: flex; gap: 4px; align-items: center;
+    margin-right: 6px;
+  }
+  #armada-lang-switch button {
+    background: rgba(255,255,255,0.08);
+    border: none; border-radius: 6px;
+    color: var(--ar-gray);
+    font-family: 'Manrope', sans-serif;
+    font-size: 10.5px; font-weight: 600;
+    letter-spacing: 0.4px;
+    padding: 4px 7px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  #armada-lang-switch button:hover { background: rgba(255,255,255,0.18); color: white; }
+  #armada-lang-switch button.active { background: var(--ar-gold); color: var(--ar-navy); }
   #armada-chat-window .header-close {
     width: 28px; height: 28px;
     background: rgba(255,255,255,0.1);
@@ -341,18 +358,17 @@
       <div class="header-logo">AR</div>
       <div class="header-info">
         <div class="header-name">ARMADA</div>
-        <div class="header-status"><span class="status-dot"></span> Онлайн</div>
+       <div class="header-status"><span class="status-dot"></span> <span id="armada-status-text">Онлайн</span></div>
+      </div>
+      <div id="armada-lang-switch">
+        <button onclick="armadaSetLang('ru')" data-lang="ru">RU</button>
+        <button onclick="armadaSetLang('en')" data-lang="en">EN</button>
+        <button onclick="armadaSetLang('tr')" data-lang="tr">TR</button>
       </div>
       <button class="header-close" onclick="armadaToggleChat()">✕</button>
     </div>
     <div id="armada-messages"></div>
-    <div id="armada-quick-btns">
-      <button class="qbtn" onclick="armadaSendQuick(this)">Подобрать материалы для проекта</button>
-      <button class="qbtn" onclick="armadaSendQuick(this)">Сроки и условия поставки</button>
-      <button class="qbtn" onclick="armadaSendQuick(this)">Гарантии и сертификаты</button>
-      <button class="qbtn" onclick="armadaSendQuick(this)">Наши проекты</button>
-      <button class="qbtn" onclick="armadaSendQuick(this)">Связаться с менеджером</button>
-    </div>
+    <div id="armada-quick-btns"></div>
     <div id="armada-input-row">
       <textarea id="armada-user-input" placeholder="Напишите вопрос..." onkeydown="armadaHandleKey(event)"></textarea>
       <button id="armada-send-btn" onclick="armadaSendMessage()">
@@ -466,6 +482,10 @@ welcome: 'Здравствуйте! Я — ИИ-консультант ARMADA. �
       phone: 'Телефон или email',
       project: 'Тип объекта и что нужно (кратко)',
       submit: 'Отправить заявку →',
+      status: 'Онлайн',
+      inputPlaceholder: 'Напишите вопрос...',
+      youLabel: 'Вы',
+      quickBtns: ['Подобрать материалы для проекта','Сроки и условия поставки','Гарантии и сертификаты','Наши проекты','Связаться с менеджером'],
       fillRequired: 'Пожалуйста, укажите имя и контакт',
       leadError: 'Не удалось отправить заявку. Пожалуйста, позвоните нам: +7 905 740 8419 или напишите: info@armada-mos.ru',
       success: 'Благодарим, Ваша заявка принята.\n\nМенеджер свяжется с Вами в ближайшее рабочее время.\n\nДля срочных вопросов: +7 905 740 8419',
@@ -479,6 +499,10 @@ welcome: 'Здравствуйте! Я — ИИ-консультант ARMADA. �
       phone: 'Phone or email',
       project: 'Project type and what you need (brief)',
       submit: 'Send request →',
+      status: 'Online',
+      inputPlaceholder: 'Type your question...',
+      youLabel: 'You',
+      quickBtns: ['Select materials for a project','Delivery times and terms','Warranty and certificates','Our projects','Contact a manager'],
       fillRequired: 'Please provide your name and contact',
       leadError: 'Could not submit your request. Please call us: +7 905 740 8419 or email: info@armada-mos.ru',
       success: 'Thank you, your request has been received.\n\nOur manager will contact you during business hours.\n\nFor urgent matters: +7 905 740 8419',
@@ -492,6 +516,10 @@ welcome: 'Здравствуйте! Я — ИИ-консультант ARMADA. �
       phone: 'Telefon veya e-posta',
       project: 'Proje türü ve ihtiyacınız (kısaca)',
       submit: 'Talebi gönder →',
+      status: 'Çevrimiçi',
+      inputPlaceholder: 'Sorunuzu yazın...',
+      youLabel: 'Siz',
+      quickBtns: ['Proje için malzeme seçimi','Teslimat süresi ve koşulları','Garanti ve sertifikalar','Projelerimiz','Yönetici ile iletişim'],
       fillRequired: 'Lütfen isim ve iletişim bilgilerinizi girin',
       leadError: 'Talebiniz gönderilemedi. Lütfen bizi arayın: +7 905 740 8419 veya e-posta gönderin: info@armada-mos.ru',
       success: 'Talebiniz alınmıştır, teşekkür ederiz.\n\nYöneticimiz çalışma saatleri içinde sizinle iletişime geçecektir.\n\nAcil durumlar için: +7 905 740 8419',
@@ -536,6 +564,46 @@ welcome: 'Здравствуйте! Я — ИИ-консультант ARMADA. �
   let isOpen = false;
   let initialized = false;
   let currentLang = 'ru';
+  let langLocked = false;
+  let dialogStarted = false;
+
+  // Отрисовка быстрых кнопок на текущем языке
+  function renderQuickBtns() {
+    const box = document.getElementById('armada-quick-btns');
+    if (!box) return;
+    const btns = T[currentLang].quickBtns || [];
+    box.innerHTML = btns.map(function(label, i) {
+      return '<button class="qbtn" data-idx="' + i + '" onclick="armadaSendQuick(this)">' + label + '</button>';
+    }).join('');
+  }
+
+  // Подсветка активного языка
+  function renderLangSwitch() {
+    const btns = document.querySelectorAll('#armada-lang-switch button');
+    btns.forEach(function(b) {
+      b.classList.toggle('active', b.getAttribute('data-lang') === currentLang);
+    });
+  }
+
+  // Ручное переключение языка интерфейса
+  window.armadaSetLang = function(lang) {
+    if (!T[lang]) return;
+    currentLang = lang;
+    langLocked = true;
+    const t = T[lang];
+    const st = document.getElementById('armada-status-text');
+    if (st) st.textContent = t.status;
+    const inp = document.getElementById('armada-user-input');
+    if (inp) inp.placeholder = t.inputPlaceholder;
+    renderQuickBtns();
+    renderLangSwitch();
+    // Если диалог ещё не начат — перерисовываем приветствие на новом языке
+    const box = document.getElementById('armada-messages');
+    if (box && !dialogStarted) {
+      box.innerHTML = '';
+      addBot(t.welcome);
+    }
+  };
 
   // Уникальный ID сессии — один на всю историю общения посетителя.
   // Передаётся со всеми сообщениями → в таблице можно группировать по этому ID.
@@ -548,6 +616,8 @@ welcome: 'Здравствуйте! Я — ИИ-консультант ARMADA. �
       initialized = true;
       // Цель Метрики: чат открыт (только при первом открытии)
       if (typeof ym === 'function') ym(103850860, 'reachGoal', 'agent_open');
+      renderQuickBtns();
+      renderLangSwitch();
       setTimeout(() => addBot(T[currentLang].welcome), 300);
     }
   };
@@ -659,7 +729,8 @@ welcome: 'Здравствуйте! Я — ИИ-консультант ARMADA. �
   }
 
   async function callGemini(userMsg) {
-    currentLang = detectLang(userMsg);
+    dialogStarted = true;
+    if (!langLocked) currentLang = detectLang(userMsg);
     // Универсальная инструкция: отвечай на ТОМ ЖЕ языке что и пользователь
     const langInstruction = `КРИТИЧЕСКИ ВАЖНОЕ ПРАВИЛО ЯЗЫКА (САМОЕ ВАЖНОЕ В ЭТОМ ЗАДАНИИ):
 
@@ -769,7 +840,9 @@ welcome: 'Здравствуйте! Я — ИИ-консультант ARMADA. �
   window.armadaSendQuick = function(btn) {
     if (!isOpen) window.armadaToggleChat();
     const txt = btn.textContent.trim();
-    if (txt === 'Связаться с менеджером') { if (!leadShown) showLeadForm(); return; }
+    const idx = parseInt(btn.getAttribute('data-idx'), 10);
+    if (idx === 4) { if (!leadShown) showLeadForm(); return; }
+    dialogStarted = true;
     addUser(txt);
     callGemini(txt);
   };
