@@ -789,29 +789,39 @@ welcome: 'Здравствуйте! Я — ИИ-консультант ARMADA. �
     }
   };
 
-  // Хелпер: попытка fetch с автоматическим повтором при сетевых ошибках
+  // Хелпер: fetch с повторами и общим таймаутом 10 секунд
+  const REQUEST_TIMEOUT = 10000;
+
   async function fetchWithRetry(url, options, maxRetries) {
     maxRetries = maxRetries || 3;
+    const deadline = Date.now() + REQUEST_TIMEOUT;
     let lastError;
     for (var i = 0; i < maxRetries; i++) {
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) break;
+      const ctrl = new AbortController();
+      const timer = setTimeout(function() { ctrl.abort(); }, remaining);
       try {
-        const res = await fetch(url, options);
-        // 5xx ошибки сервера — тоже стоит повторить
+        const res = await fetch(url, Object.assign({}, options, { signal: ctrl.signal }));
+        // 5xx ошибки сервера — повторяем, если время ещё есть
         if (res.status >= 500 && res.status < 600 && i < maxRetries - 1) {
+          clearTimeout(timer);
           await new Promise(function(r) { setTimeout(r, 800 * (i + 1)); });
           continue;
         }
         return res;
       } catch (e) {
+        clearTimeout(timer);
         lastError = e;
-        // Сетевые ошибки (ERR_CONNECTION_CLOSED, ERR_NETWORK и т.д.) — повторяем
+        // Время вышло — больше не повторяем
+        if (e.name === 'AbortError') break;
         if (i < maxRetries - 1) {
           await new Promise(function(r) { setTimeout(r, 800 * (i + 1)); });
           continue;
         }
       }
     }
-    throw lastError;
+    throw lastError || new Error('Request timeout');
   }
 
   async function callGemini(userMsg) {
